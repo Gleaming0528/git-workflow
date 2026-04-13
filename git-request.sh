@@ -1,11 +1,13 @@
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
-trap "cd \"$(pwd)\"" EXIT
+_origdir="$(pwd)"
+trap 'cd "${_origdir}"' EXIT
 cd "$(git rev-parse --show-toplevel)"
 source "$(git --exec-path)/git-sh-setup"
 
+nl=$'\n'
 while (( ${#} > 0 )); do
   if [[ "${1}" == -* ]]; then
     prop=${1:1}
@@ -13,7 +15,7 @@ while (( ${#} > 0 )); do
     case "${prop}" in
       r) user="${user:+${user} }${1}";;
       t) title="${1}";;
-      m) remark="${remark:+${remark}\n}${1}";;
+      m) remark="${remark:+${remark}${nl}}${1}";;
       *) die "usage: [-r reviewer] [-t title] [-m description] [base_branch]";;
     esac
     prop=""
@@ -25,42 +27,43 @@ done
 
 if [[ -z "${base}" ]]; then
   base="$(git rev-parse --abbrev-ref origin/HEAD)"
-  base="${1:-${base#origin/}}"
+  base="${base#origin/}"
 fi
 
-feat=$(git branch --show-current)
+feat="$(git branch --show-current)"
 if [[ "${feat}" == "${base}" ]]; then
   die "merge request on <${base}> is not allowed"
 fi
 
 if [[ -z "${title}" ]]; then
-  title="$(git log ${base}..${feat} --oneline | tail -1 | cut -d' ' -f2-)"
+  title="$(git log "${base}..${feat}" --oneline | tail -1 | cut -d' ' -f2-)"
 fi
 if [[ -z "${title}" ]]; then
   die "commit message not found, option -t is required"
 fi
 
-option="-o merge_request.create"
+opts=(-o merge_request.create)
 for r in ${user}; do
-  option="${option} -o merge_request.assign=${r}"
+  opts+=(-o "merge_request.assign=${r}")
 done
 if [[ -n "${base}" ]]; then
-  option="${option} -o merge_request.target=${base}"
+  opts+=(-o "merge_request.target=${base}")
 fi
 if [[ -n "${title}" ]]; then
-  option="${option} -o \"merge_request.title=${title}\""
+  opts+=(-o "merge_request.title=${title}")
 fi
 if [[ -n "${remark}" ]]; then
-  option="${option} -o \"merge_request.description=${remark}\""
+  opts+=(-o "merge_request.description=${remark}")
 fi
 
-track=$(git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)")
+track="$(git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)")"
+track_args=()
 if [[ "${track}" == origin/* ]]; then
-  track=""
+  :
 elif [[ -n "${track}" ]]; then
-  track="origin ${feat}:${feat}"
+  track_args=(origin "${feat}:${feat}")
 else
-  track="-u origin ${feat}:${feat}"
+  track_args=(-u origin "${feat}:${feat}")
 fi
 
-eval git push ${option} ${track}
+git push "${opts[@]}" "${track_args[@]}"

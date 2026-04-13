@@ -1,20 +1,32 @@
 Git Workflow Scripts
 ====================
 
+Bash helpers for daily branch & merge-request workflow on **GitLab**.
+
+## Install
+
 Clone this repo, `cd` to this dir and create symlinks in one dir of `$PATH`:
 
 ```bash
+# macOS (Homebrew)
+for cmd in git-*.sh; do ln -s "$(pwd)/${cmd}" /opt/homebrew/bin/${cmd%.sh}; done
+
+# Linux / Intel Mac
 for cmd in git-*.sh; do ln -s "$(pwd)/${cmd}" /usr/local/bin/${cmd%.sh}; done
 ```
 
-Then you can invoke the following commands:
+## Commands
 
-- `git work`: start a new branch
+- `git work <type>-<name>` — create or switch to a feature branch
 
-- `git request`: create merge request
+  Type must be one of: `feat`, `fix`, `doc`, `epic`, `chore`.
 
-- `git update`: rebase on main branch
+- `git request [-r reviewer] [-t title] [-m description] [base]` — push and create a merge request
 
-  If you encounter conflicts, resolve it and `git rebase --continue`
+  Default title is taken from the last commit message. `-r` can be repeated.
 
-- `git done`: prune working branch
+- `git update [base]` — rebase current branch on the base branch
+
+  If you encounter conflicts, resolve them and `git rebase --continue`.
+
+- `git done [base]` — switch to base branch, delete the feature branch, and prune
